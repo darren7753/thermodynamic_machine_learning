@@ -183,7 +183,7 @@ def page_2():
     st.write("")
 
     if "df" in st.session_state:
-        tab1, tab2, tab3 = st.tabs(["Automated Visualization", "2D Visualization", "3D Visualization"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Automated Visualization", "2D Visualization", "3D Visualization", "Correlation"])
         with tab1:
             analysis = sv.analyze(st.session_state["df"])
             
@@ -271,6 +271,25 @@ def page_2():
                         with st.container(border=True):
                             st.plotly_chart(fig_surface, use_container_width=True)
 
+        with tab4:
+            corr_matrix = st.session_state["df"].corr(method="pearson")
+
+            fig_heatmap = go.Figure(data=go.Heatmap(
+                z=corr_matrix.values,
+                x=corr_matrix.columns,
+                y=corr_matrix.columns,
+                colorscale="Viridis",
+                texttemplate="%{z:.2f}"
+            ))
+            fig_heatmap.update_layout(
+                xaxis_showgrid=False,
+                yaxis_showgrid=False,
+                margin=dict(l=0, r=0, t=0, b=0)
+            )
+            st.subheader("Pearson Correlation")
+            with st.container(border=True):
+                st.plotly_chart(fig_heatmap)
+
     else:
         st.error("No data loaded. Please load data from the 'Data' page.", icon="🚨")
 
@@ -288,13 +307,13 @@ def page_3():
             st.info("Currently, the models are unavailable for this dataset.", icon="ℹ️")
             return
 
-        st.write("## Model Comparison")
+        st.subheader("Model Comparison")
         st.dataframe(model_comparison, use_container_width=True)
         st.write(f"Best Model: {best_model_name}")
 
         st.divider()
 
-        st.write("## Prediction")
+        st.subheader("Prediction")
         model_names = model_comparison.index.tolist()
         selected_model = st.selectbox("Select Model", model_names)
 
@@ -364,7 +383,7 @@ def page_3():
 
 navbar = option_menu(
     menu_title=None,
-    options=["Data", "EDA", "Prediksi"],
+    options=["Data", "EDA", "Prediction"],
     icons=["database-fill", "bar-chart-fill", "robot"],
     default_index=0,
     orientation="horizontal"
@@ -374,5 +393,5 @@ if navbar == "Data":
     page_1()
 elif navbar == "EDA":
     page_2()
-elif navbar == "Prediksi":
+elif navbar == "Prediction":
     page_3()
