@@ -1,8 +1,10 @@
 import os
 import time
 import tempfile
+import numpy as np
 import pandas as pd
 import sweetviz as sv
+import plotly.graph_objs as go
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -11,6 +13,7 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 from pycaret.regression import *
 from pygwalker.api.streamlit import StreamlitRenderer
+from scipy.interpolate import griddata
 
 # App Settings
 st.set_page_config(
@@ -180,7 +183,7 @@ def page_2():
     st.write("")
 
     if "df" in st.session_state:
-        tab1, tab2 = st.tabs(["Automated EDA", "Manual EDA"])
+        tab1, tab2, tab3 = st.tabs(["Automated Visualization", "2D Visualization", "3D Visualization"])
         with tab1:
             analysis = sv.analyze(st.session_state["df"])
             
@@ -195,6 +198,78 @@ def page_2():
         with tab2:
             pyg_app = StreamlitRenderer(st.session_state["df"])
             pyg_app.explorer()
+
+        with tab3:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                x_axis = st.selectbox(
+                    label="X Axis",
+                    options=st.session_state["df"].columns,
+                    index=None
+                )
+
+            with col2:
+                y_axis = st.selectbox(
+                    label="Y Axis",
+                    options=st.session_state["df"].columns,
+                    index=None
+                )
+
+            with col3:
+                z_axis = st.selectbox(
+                    label="Z Axis",
+                    options=st.session_state["df"].columns,
+                    index=None
+                )
+
+            if (x_axis is not None) and (y_axis is not None) and (z_axis is not None):
+                if (x_axis == y_axis) or (x_axis == z_axis) or (y_axis == z_axis):
+                    st.error("X axis, Y axis, and Z axis cannot have the same values. Please select different columns.", icon="🚨")
+                else:
+                    col1, col2 = st.columns(2)
+
+                    fig_contour = go.Figure(data=go.Contour(
+                        z=st.session_state["df"][z_axis], 
+                        x=st.session_state["df"][x_axis], 
+                        y=st.session_state["df"][y_axis],
+                        colorscale="Viridis"
+                    ))
+                    fig_contour.update_traces(contours_coloring="heatmap")
+                    fig_contour.update_layout(
+                        margin=dict(l=0, r=0, t=0, b=0),
+                        xaxis_showgrid=False,
+                        yaxis_showgrid=False
+                    )
+
+                    with col1:
+                        st.subheader("Contour Plot")
+                        with st.container(border=True):
+                            st.plotly_chart(fig_contour, use_container_width=True)
+
+                    x = np.array(st.session_state["df"][x_axis])
+                    y = np.array(st.session_state["df"][y_axis])
+                    z = np.array(st.session_state["df"][z_axis])
+
+                    xi = np.linspace(x.min(), x.max(), 100)
+                    yi = np.linspace(y.min(), y.max(), 100)
+
+                    X, Y = np.meshgrid(xi, yi)
+                    Z = griddata((x, y), z, (X, Y), method="cubic")
+
+                    fig_surface = go.Figure(data=[go.Surface(
+                        x=xi, 
+                        y=yi, 
+                        z=Z,
+                        colorscale="Viridis"
+                    )])
+                    fig_surface.update_layout(
+                        margin=dict(l=0, r=0, b=0, t=40)
+                    )
+
+                    with col2:
+                        st.subheader("3D Surface Plot")
+                        with st.container(border=True):
+                            st.plotly_chart(fig_surface, use_container_width=True)
 
     else:
         st.error("No data loaded. Please load data from the 'Data' page.", icon="🚨")
